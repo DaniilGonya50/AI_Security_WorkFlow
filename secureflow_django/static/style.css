@@ -509,11 +509,23 @@ path.wire-preview {
 .node.sim-running {
   border-color: #f59e0b !important;
   box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35) !important;
+  animation: nodeExecutionPulse 1.25s ease-in-out infinite;
+}
+
+@keyframes nodeExecutionPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.20); }
+  50% { box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.42); }
 }
 
 .node.sim-done {
   border-color: #10b981 !important;
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+.node.sim-skipped {
+  border-color: #64748b !important;
+  box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.22) !important;
+  opacity: .68;
 }
 
 @keyframes nodeErrorBounce {
@@ -931,3 +943,13 @@ path.wire-preview {
 .scenario-actions button { padding:7px 10px; font-size:12px; }
 .field-hint { display:block; margin-top:6px; color:#94a3b8; font-size:11px; line-height:1.45; }
 @media (max-width: 760px) { .topbar { padding:0 8px; } .header-right { gap:5px; } .scenario-row { align-items:flex-start; flex-direction:column; } }
+
+.full-report-card { width:min(900px, calc(100vw - 32px)); max-height: min(86vh, 900px); display:flex; flex-direction:column; text-align:left; }
+.full-report-content { overflow:auto; max-height:70vh; color:#cbd5e1; line-height:1.55; }
+.full-report-content h4 { color:#f8fafc; margin:16px 0 7px; }
+.full-report-content pre { white-space:pre-wrap; overflow-wrap:anywhere; background:#0f1420; border:1px solid #272e42; border-radius:8px; padding:12px; font:12px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.full-report-content summary { cursor:pointer; color:#93c5fd; margin:12px 0; }
+.full-report-content a { color:#60a5fa; }
+.report-error { color:#fca5a5; }
+.history-empty { color:#94a3b8; padding:12px 0; }
+.sim-log-line { padding:6px 0; border-bottom:1px solid #272e42; color:#cbd5e1; font-size:12px; }

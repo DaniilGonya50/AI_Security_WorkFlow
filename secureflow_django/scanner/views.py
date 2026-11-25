@@ -56,11 +56,12 @@ class ScanStatusView(APIView):
         except (ValueError, ScanSession.DoesNotExist):
             raise Http404('Сессия не найдена')
 
+        payload = {'text': session.current_text, 'progress': session.progress, 'stage': session.stage, 'events': session.events or []}
         if session.status == ScanSession.Status.ERROR:
-            return Response({'status': 'Error', 'text': session.error_text})
+            return Response({'status': 'Error', **payload, 'error': session.error_text})
         if session.status == ScanSession.Status.ENDED:
-            return Response({'status': 'End', 'text': session.current_text, 'data': session.final_data})
-        return Response({'status': 'Ok', 'text': session.current_text})
+            return Response({'status': 'End', **payload, 'data': session.final_data})
+        return Response({'status': 'Ok', **payload})
 
 
 def frontend_index(request):
@@ -116,3 +117,26 @@ class ScenarioDetailView(APIView):
             raise Http404('Сценарий не найден')
         item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ReportListView(APIView):
+    """История завершённых запусков. До добавления аккаунтов общая для инсталляции."""
+    def get(self, request):
+        items = ScanSession.objects.filter(status=ScanSession.Status.ENDED).order_by('-created_at')[:100]
+        return Response([
+            {'session_id': str(item.session_id), 'created_at': item.created_at.isoformat(),
+             'findings_count': len((item.final_data or {}).get('findings', [])),
+             'summary': ((item.final_data or {}).get('ai_report') or {}).get('summary', ''),
+             'status': item.status}
+            for item in items
+        ])
+
+
+class ReportDetailView(APIView):
+    def get(self, request, session_id):
+        try:
+            item = ScanSession.objects.get(session_id=session_id, status=ScanSession.Status.ENDED)
+        except (ScanSession.DoesNotExist, ValueError):
+            raise Http404('Отчёт не найден')
+        return Response({'session_id': str(item.session_id), 'created_at': item.created_at.isoformat(),
+                         'data': item.final_data or {}, 'events': item.events or []})

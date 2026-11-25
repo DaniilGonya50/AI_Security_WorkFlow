@@ -14,6 +14,7 @@ class ScanSession(models.Model):
     final_data = models.JSONField(null=True, blank=True)
     data_ready = models.BooleanField(default=False)
     progress = models.PositiveSmallIntegerField(default=0)
+    events = models.JSONField(default=list, blank=True)
     stage = models.CharField(max_length=32, default='init')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -69,19 +69,14 @@
     </button>
 
     <button class="btn-secondary" onclick="openScenarioHistory()">Сценарии</button>
+    <button class="btn-secondary" onclick="openReportHistory()">История отчётов</button>
     <button class="btn-secondary" onclick="saveScenario()">Сохранить</button>
     <button class="btn-secondary" onclick="clearCanvas()">Очистить</button>
-    <button class="btn-sim" onclick="runSimulation()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-        <polygon points="5 3 19 12 5 21 5 3"></polygon>
-      </svg>
-      <span>Симуляция</span>
-    </button>
     <button class="btn-primary" onclick="handleVerifyClick()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
       </svg>
-      <span>Проверить</span>
+      <span>Запустить</span>
     </button>
   </div>
 </header>
@@ -220,7 +215,7 @@
 
     <div class="zoom-badge" id="zoom-badge" onclick="resetZoom()" title="Нажмите, чтобы вернуть 100%">100%</div>
 
-    <!-- Микро-окошко пошаговой симуляции -->
+    <!-- Панель реального выполнения и микроотчётов -->
     <div class="sim-panel" id="sim-panel">
       <div class="sim-header">
         <span>⚡ Выполнение сценария</span>
@@ -253,15 +248,33 @@
   </div>
 </div>
 
+<!-- История отчётов -->
+<div class="modal-backdrop" id="report-history-modal">
+  <div class="modal-card scenario-modal-card">
+    <div class="scenario-modal-header"><h3>История отчётов</h3><button class="icon-btn-sm" onclick="closeReportHistory()">✕</button></div>
+    <div id="report-history-list" class="scenario-list"></div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeReportHistory()">Закрыть</button></div>
+  </div>
+</div>
+
+<!-- Полный отчёт -->
+<div class="modal-backdrop" id="full-report-modal">
+  <div class="modal-card scenario-modal-card full-report-card">
+    <div class="scenario-modal-header"><h3 id="full-report-title">Отчёт</h3><button class="icon-btn-sm" onclick="closeFullReport()">✕</button></div>
+    <div id="full-report-content" class="full-report-content"></div>
+    <div class="modal-actions"><button class="btn-secondary" onclick="closeFullReport()">Закрыть</button></div>
+  </div>
+</div>
+
 <!-- Модальное окно Telegram -->
 <div class="modal-backdrop" id="tg-modal">
   <div class="modal-card">
     <h3>Подключение Telegram-уведомлений</h3>
-    <p>Открой своего бота, которого ты создал через BotFather, и отправь ему команду <b>/start</b>.</p>
+    <p>Открой своего Telegram-бота и отправь ему команду <b>/start</b>. Для уведомлений в ноде Telegram укажи именно свой <b>@username</b> (имя пользователя Telegram), а не имя профиля.</p>
     <div class="bot-copy-wrapper">
       <div class="bot-tag" id="bot-tag" title="Инструкция">Отправь боту команду /start</div>
     </div>
-    <small>Бот ответит числовым chat_id. В настройках Telegram-ноды укажи этот chat_id. Не вставляй токен бота в интерфейс или в чат.</small>
+    <small>Бот должен получить от тебя команду /start, чтобы зарегистрировать username. Не вставляй токен бота в интерфейс или в чат.</small>
     <div class="modal-actions">
       <button class="btn-danger" onclick="closeTgModal()">Выйти</button>
       <button class="btn-primary" onclick="confirmTgAndRun()">Да, я написал</button>

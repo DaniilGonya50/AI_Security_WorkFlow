@@ -280,12 +280,15 @@ function createNode(type, subtype, title, x, y) {
   if (type === 'message' && subtype === 'telegram') defaultData = '';
   if (type === 'message' && subtype === 'smtp') defaultData = 'dev@example.com';
   if (type === 'message' && subtype === 'webhook') defaultData = 'https://api.example.com/webhook';
-  if (type === 'logic') defaultData = 'vulnerabilities > 0';
+  if (type === 'logic') defaultData = 'findings.critical > 0';
 
-  const node = { id, type, subtype, title, x, y, data: defaultData };
+  const node = { id, type, subtype, title, x, y, data: defaultData, condition: defaultData };
   if (type === 'check') {
     node.regex = '';
     node.hasRegex = false;
+    node.regexScope = 'content';
+    node.regexMode = 'include';
+    node.regexFlags = 'i';
   }
 
   nodes.push(node);
@@ -324,7 +327,7 @@ function renderNodes() {
     if (isRegexTargetNode(node) && node.hasRegex) {
       regexBadgeHTML = `
         <div class="embedded-regex" title="Вложенная регулярка">
-          <span>/${node.regex || 'пусто'}/</span>
+          <span>/${escapeHtml(node.regex || 'пусто')}/</span>
           <button onclick="removeEmbeddedRegex(event, ${node.id})" title="Убрать регулярку">✕</button>
         </div>
       `;
@@ -531,7 +534,7 @@ function renderSettings() {
   if (node.type === 'triggers' && node.subtype === 'onschedual') {
     inputHTML = `<div class="form-group"><label>Timestamp (Unix) *</label><input type="text" id="node-data-input" value="${node.data}"></div>`;
   } else if (node.type === 'message' && node.subtype === 'telegram') {
-    inputHTML = `<div class="form-group"><label>Telegram chat_id или зарегистрированный @username *</label><input type="text" id="node-data-input" placeholder="Например: 123456789" value="${node.data || ''}"><small class="field-hint">Сначала запусти бота командой /start. Надёжнее указать числовой chat_id, который бот покажет в ответе.</small></div>`;
+    inputHTML = `<div class="form-group"><label>Telegram username *</label><input type="text" id="node-data-input" placeholder="Например: @username" value="${node.data || ''}"><small class="field-hint">Вводи username Telegram с @. Перед запуском отправь боту команду /start, чтобы он зарегистрировал тебя.</small></div>`;
   } else if (node.type === 'message' && node.subtype === 'smtp') {
     inputHTML = `<div class="form-group"><label>Email адрес *</label><input type="email" id="node-data-input" value="${node.data}"></div>`;
   } else if (node.type === 'message' && node.subtype === 'webhook') {
@@ -539,14 +542,18 @@ function renderSettings() {
   } else if (node.type === 'projecttype') {
     inputHTML = `<div class="form-group"><label>Ссылка на репозиторий *</label><input type="text" id="node-data-input" value="${node.data}"></div>`;
   } else if (node.type === 'logic') {
-    inputHTML = `<div class="form-group"><label>Условие ветвления *</label><input type="text" id="node-data-input" value="${node.data}"></div>`;
+    const condition = node.condition || node.data || 'findings.critical > 0';
+    inputHTML = `<div class="form-group"><label>Логическое условие *</label><input type="text" id="node-condition-input" value="${escapeHtml(condition)}" placeholder="findings.critical > 0"><small class="field-hint">Доступно: findings.total, findings.critical, findings.high, findings.medium, findings.low, critical_count, high_count, medium_count, low_count, total_count, sast, sca, secrets. Операторы: ==, !=, &gt;, &lt;, &gt;=, &lt;=, and, or, not.</small></div>`;
   }
 
   if (isRegexTargetNode(node) && node.hasRegex) {
     inputHTML += `
       <div class="form-group">
-        <label>Вложенное регулярное выражение (regex) *</label>
-        <input type="text" id="node-regex-input" placeholder="Например: ^[A-Za-z0-9_-]{20,}$" value="${node.regex || ''}">
+        <label>Регулярное выражение *</label>
+        <input type="text" id="node-regex-input" placeholder="Например: \\.kt$" value="${escapeHtml(node.regex || '')}">
+        <label>Область поиска</label><select id="node-regex-scope"><option value="path" ${node.regexScope === 'path' ? 'selected' : ''}>Путь / имя файла</option><option value="content" ${node.regexScope !== 'path' ? 'selected' : ''}>Содержимое файла</option></select>
+        <label>Режим</label><select id="node-regex-mode"><option value="include" ${node.regexMode !== 'exclude' ? 'selected' : ''}>Оставить совпадения</option><option value="exclude" ${node.regexMode === 'exclude' ? 'selected' : ''}>Исключить совпадения</option></select>
+        <label>Флаги</label><input type="text" id="node-regex-flags" value="${escapeHtml(node.regexFlags || 'i')}" placeholder="i, m, s"><small class="field-hint">Regex применяется к файлам перед запуском сканера. Флаги: i — без учёта регистра, m — многострочный, s — точка включает переносы.</small>
       </div>
     `;
   }
@@ -573,6 +580,19 @@ function renderSettings() {
     });
     dataInput.addEventListener('change', () => saveState());
   }
+
+  const conditionInput = document.getElementById('node-condition-input');
+  if (conditionInput) {
+    conditionInput.addEventListener('input', e => { node.condition = e.target.value; node.data = e.target.value; elClearInvalid(node.id); });
+    conditionInput.addEventListener('change', () => saveState());
+  }
+
+  const regexScope = document.getElementById('node-regex-scope');
+  if (regexScope) regexScope.addEventListener('change', e => { node.regexScope = e.target.value; saveState(); });
+  const regexMode = document.getElementById('node-regex-mode');
+  if (regexMode) regexMode.addEventListener('change', e => { node.regexMode = e.target.value; saveState(); });
+  const regexFlags = document.getElementById('node-regex-flags');
+  if (regexFlags) regexFlags.addEventListener('change', e => { node.regexFlags = e.target.value; saveState(); });
 
   const regexInput = document.getElementById('node-regex-input');
   if (regexInput) {
@@ -749,9 +769,10 @@ function buildWorkflowJSON() {
       info.regex = node.regex;
     }
 
-    const branches = parentEdges.map(e => e.branch).filter(Boolean);
-    if (branches.length > 0) {
-      info.branch = branches;
+    info.parent_branches = parentEdges.map(e => e.branch || null);
+    if (node.type === 'logic') info.condition = node.condition || node.data;
+    if (isRegexTargetNode(node) && node.hasRegex && node.regex) {
+      info.regex_config = { pattern: node.regex, scope: node.regexScope || 'content', mode: node.regexMode || 'include', flags: node.regexFlags || 'i' };
     }
 
     result.push({
@@ -780,12 +801,17 @@ const BACKEND_URL = window.location.origin; // фронтенд и API рабо�
 
 let pollTimer = null;
 let currentSessionId = null;
+let seenExecutionEvents = new Set();
 
 async function startBackendScan(workflow) {
   // Сбрасываем предыдущий опрос, если он был
   stopPolling();
   currentSessionId = null;
-  showScanProgress('Отправка workflow на сервер...');
+  seenExecutionEvents = new Set();
+  viewport.querySelectorAll('.node').forEach(el => el.classList.remove('sim-running', 'sim-done', 'sim-skipped'));
+  const simPanel = document.getElementById('sim-panel');
+  if (simPanel) { simPanel.style.display = 'flex'; document.getElementById('sim-logs').innerHTML = ''; }
+  showScanProgress('Отправка сценария на сервер...');
 
   try {
     const resp = await fetch(`${BACKEND_URL}/api/scan/start`, {
@@ -844,6 +870,7 @@ async function pollScanStatus() {
     const data = await resp.json();
     const status = data.status;
     const text = data.text || '';
+    (data.events || []).forEach(renderExecutionEvent);
 
     // Пишем статус в UI
     showScanProgress(text);
@@ -870,6 +897,7 @@ async function pollScanStatus() {
         const details = Object.entries(counts).map(([key, value]) => `${key}: ${value}`).join(' · ');
         showScanProgress(`Готово. Найдено проблем: ${findings.length}${details ? ' (' + details + ')' : ''}`, false);
         showScanResults(data.data);
+      refreshReportHistory();
       } else {
         showScanProgress('Сканирование завершено (без отчёта).', false);
       }
@@ -907,7 +935,8 @@ function showScanResults(result) {
   }
   const findings = Array.isArray(result.findings) ? result.findings : [];
   const rows = findings.slice(0, 30).map(item => `<div style="padding:7px 0;border-bottom:1px solid #252b3d"><b>${escapeHtml(item.severity || 'UNKNOWN')}</b> · ${escapeHtml(item.type || 'CHECK')}<br><span style="color:#94a3b8">${escapeHtml(item.file || 'файл не указан')}:${Number(item.line) || 0}</span><br>${escapeHtml(item.message || item.description || item.rule || 'Обнаружено потенциальное нарушение')}</div>`).join('');
-  panel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Результаты проверки · ${findings.length}</b><button onclick="document.getElementById('scan-results').remove()" style="background:none;border:0;color:#94a3b8;cursor:pointer">✕</button></div>${rows || '<p style="color:#94a3b8">Сканеры не нашли совпадений по текущим правилам.</p>'}${findings.length > 30 ? `<p style="color:#94a3b8">Показаны первые 30 из ${findings.length} находок.</p>` : ''}${result.ai_report?.summary ? `<p style="margin-top:10px;color:#93c5fd">${escapeHtml(result.ai_report.summary)}</p>` : ''}${result.ai_error ? `<p style="margin-top:10px;color:#fca5a5">ИИ-отчёт: ${escapeHtml(result.ai_error)}</p>` : ''}`;
+  panel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>Результаты проверки · ${findings.length}</b><button onclick="document.getElementById('scan-results').remove()" style="background:none;border:0;color:#94a3b8;cursor:pointer">✕</button></div>${rows || '<p style="color:#94a3b8">Сканеры не нашли совпадений по текущим правилам.</p>'}${findings.length > 30 ? `<p style="color:#94a3b8">Показаны первые 30 из ${findings.length} находок.</p>` : ''}${(result.ai_report?.summary || result.ai_report?.text_report) ? `${result.ai_report.summary ? `<p style="margin-top:10px;color:#93c5fd">${escapeHtml(result.ai_report.summary)}</p>` : ''}<button class="btn-secondary" onclick="openFullReport(window.lastScanResult, 'Полный ИИ-отчёт')">Открыть полный ИИ-отчёт</button>` : ''}${result.ai_error ? `<p style="margin-top:10px;color:#fca5a5">ИИ-отчёт: ${escapeHtml(result.ai_error)}</p>` : ''}`;
+  window.lastScanResult = result;
 }
 
 function escapeHtml(value) {
@@ -1024,51 +1053,76 @@ function showScanProgress(text, isError = false) {
   }
 }
 
-// --- Симуляция ---
-function runSimulation() {
-  if (!validateWorkflow()) return;
-
+// --- Реальные микроотчёты выполнения от бэкенда ---
+function renderExecutionEvent(event) {
+  const key = `${event.node_id}:${event.status}`;
+  if (seenExecutionEvents.has(key)) return;
+  seenExecutionEvents.add(key);
+  const el = viewport.querySelector(`.node[data-id="${CSS.escape(String(event.node_id))}"]`);
+  if (el) {
+    if (event.status === 'running') {
+      el.classList.remove('sim-done', 'sim-skipped');
+      el.classList.add('sim-running');
+    } else {
+      el.classList.remove('sim-running', 'sim-done', 'sim-skipped');
+      el.classList.add(event.status === 'skipped' ? 'sim-skipped' : 'sim-done');
+    }
+  }
   const simPanel = document.getElementById('sim-panel');
   const simLogs = document.getElementById('sim-logs');
-  simPanel.style.display = 'flex';
-  simLogs.innerHTML = '';
-
-  viewport.querySelectorAll('.node').forEach(el => el.classList.remove('sim-running', 'sim-done'));
-
-  const ordered = [...nodes].sort((a, b) => a.x - b.x);
-  let step = 0;
-
-  function nextStep() {
-    if (step >= ordered.length) {
-      const aiDiv = document.createElement('div');
-      aiDiv.className = 'sim-log-ai';
-      aiDiv.innerText = 'AI-анализ завершён: критических уязвимостей не обнаружено, отчёт передан по подключённым каналам.';
-      simLogs.appendChild(aiDiv);
-      simLogs.scrollTop = simLogs.scrollHeight;
-      return;
-    }
-
-    const current = ordered[step];
-    const el = viewport.querySelector(`.node[data-id="${current.id}"]`);
-    if (el) el.classList.add('sim-running');
-
+  if (simPanel && simLogs) {
+    simPanel.style.display = 'flex';
     const line = document.createElement('div');
-    line.innerText = `▶ Выполнение: ${current.title} (${current.subtype})...`;
+    line.className = 'sim-log-line';
+    line.textContent = `${event.status === 'running' ? '▶' : event.status === 'skipped' ? '↷' : '✓'} ${event.title || event.type}: ${event.message || 'Этап завершён'}`;
     simLogs.appendChild(line);
     simLogs.scrollTop = simLogs.scrollHeight;
-
-    setTimeout(() => {
-      if (el) {
-        el.classList.remove('sim-running');
-        el.classList.add('sim-done');
-      }
-      line.innerText = `✓ Готово: ${current.title}`;
-      step++;
-      nextStep();
-    }, 650);
   }
+}
 
-  nextStep();
+function openFullReport(result, title) {
+  const report = result?.ai_report || {};
+  const content = document.getElementById('full-report-content');
+  document.getElementById('full-report-title').textContent = title || 'Полный ИИ-отчёт';
+  const textReport = report.text_report || report.text || '';
+  const jsonReport = report.json_report || report.json || null;
+  let html = '';
+  if (report.summary) html += `<h4>Краткий вывод</h4><p>${escapeHtml(report.summary)}</p>`;
+  if (textReport) html += `<h4>Подробный анализ</h4><pre>${escapeHtml(textReport)}</pre>`;
+  if (typeof report.report_url === 'string' && report.report_url.startsWith('https://')) html += `<p><a href="${escapeHtml(report.report_url)}" target="_blank" rel="noopener noreferrer">Открыть опубликованную версию отчёта</a></p>`;
+  if (jsonReport) html += `<details><summary>Структурированные данные</summary><pre>${escapeHtml(JSON.stringify(jsonReport, null, 2))}</pre></details>`;
+  if (result?.ai_error) html += `<p class="report-error">ИИ-анализ не завершился: ${escapeHtml(result.ai_error)}</p>`;
+  if (!html) html = '<p>Подробный ИИ-отчёт для этого запуска отсутствует.</p>';
+  content.innerHTML = html;
+  document.getElementById('full-report-modal').style.display = 'flex';
+}
+function closeFullReport() { document.getElementById('full-report-modal').style.display = 'none'; }
+
+async function openReportHistory() {
+  document.getElementById('report-history-modal').style.display = 'flex';
+  await refreshReportHistory();
+}
+function closeReportHistory() { document.getElementById('report-history-modal').style.display = 'none'; }
+async function refreshReportHistory() {
+  const list = document.getElementById('report-history-list');
+  if (!list) return;
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/reports`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const items = await response.json();
+    list.innerHTML = items.length ? items.map(item => `<div class="scenario-row"><div><b>${new Date(item.created_at).toLocaleString()}</b><small>Находок: ${item.findings_count} · ${escapeHtml(item.summary || 'ИИ-сводка отсутствует')}</small></div><div class="scenario-actions"><button class="btn-secondary" onclick="openHistoricalReport('${item.session_id}')">Открыть</button></div></div>`).join('') : '<p class="history-empty">Отчётов пока нет.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="report-error">Не удалось загрузить историю: ${escapeHtml(error.message)}</p>`;
+  }
+}
+async function openHistoricalReport(id) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/reports/${encodeURIComponent(id)}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+    closeReportHistory();
+    openFullReport(data.data || {}, `Отчёт от ${new Date(data.created_at).toLocaleString()}`);
+  } catch (error) { showError(`Не удалось открыть отчёт: ${error.message}`); }
 }
 
 // Инициализация при запуске
